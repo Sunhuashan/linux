@@ -507,22 +507,34 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 	struct tee_param *params = NULL;
 	bool have_session = false;
 
+	printk("my error msg: Running at ioctl_open_session()");
+	
 	if (!ctx->teedev->desc->ops->open_session)
 		return -EINVAL;
 
+	printk("my error msg: Finished device open_session() operation");
+
 	if (copy_from_user(&buf, ubuf, sizeof(buf)))
 		return -EFAULT;
+
+	printk("my error msg: Finished copy [buf] from user space");
 
 	if (buf.buf_len > TEE_MAX_ARG_SIZE ||
 	    buf.buf_len < sizeof(struct tee_ioctl_open_session_arg))
 		return -EINVAL;
 
+	printk("my error msg: Finished check the lenth of [buf]");
+
 	uarg = u64_to_user_ptr(buf.buf_ptr);
 	if (copy_from_user(&arg, uarg, sizeof(arg)))
 		return -EFAULT;
 
+	printk("my error msg: Finished copy [arg] from user space");
+
 	if (sizeof(arg) + TEE_IOCTL_PARAM_SIZE(arg.num_params) != buf.buf_len)
 		return -EINVAL;
+
+	printk("my error msg: Finished check the lenth of [arg]");
 
 	if (arg.num_params) {
 		params = kcalloc(arg.num_params, sizeof(struct tee_param),
@@ -535,6 +547,8 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 			goto out;
 	}
 
+	printk("my error msg: Finished copy [params] to shm from user space");
+	
 	if (arg.clnt_login >= TEE_IOCTL_LOGIN_REE_KERNEL_MIN &&
 	    arg.clnt_login <= TEE_IOCTL_LOGIN_REE_KERNEL_MAX) {
 		pr_debug("login method not allowed for user-space client\n");
@@ -542,7 +556,12 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 		goto out;
 	}
 
+	printk("my error msg: Finished check the legality of login method");
+
 	rc = ctx->teedev->desc->ops->open_session(ctx, &arg, params);
+
+	printk("my error msg: Finished open_session(), the result is 0x%x", rc);
+
 	if (rc)
 		goto out;
 	have_session = true;
@@ -553,7 +572,13 @@ static int tee_ioctl_open_session(struct tee_context *ctx,
 		rc = -EFAULT;
 		goto out;
 	}
+
+	printk("my error msg: Finished put_user(), the result is 0x%x", rc);
+
 	rc = params_to_user(uparams, arg.num_params, params);
+
+	printk("my error msg: Finished params_to_user(), the result is 0x%x", rc);
+
 out:
 	/*
 	 * If we've succeeded to open the session but failed to communicate
@@ -853,6 +878,7 @@ static long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct tee_context *ctx = filp->private_data;
 	void __user *uarg = (void __user *)arg;
+	int rc;
 
 	switch (cmd) {
 	case TEE_IOC_VERSION:
@@ -864,7 +890,9 @@ static long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case TEE_IOC_SHM_REGISTER_FD:
 		return tee_ioctl_shm_register_fd(ctx, uarg);
 	case TEE_IOC_OPEN_SESSION:
-		return tee_ioctl_open_session(ctx, uarg);
+		rc = tee_ioctl_open_session(ctx, uarg);
+		printk("my error msg: After tee_ioctl_open_session(), result is 0x%x", rc);
+		return rc;
 	case TEE_IOC_INVOKE:
 		return tee_ioctl_invoke(ctx, uarg);
 	case TEE_IOC_CANCEL:
